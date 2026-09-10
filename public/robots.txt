@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Hash routes are part of one document; crawlers index the canonical root.
+Sitemap: https://over.is-a.dev/sitemap.xml
