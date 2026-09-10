@@ -15,11 +15,14 @@ public in the browser bundle.
 - Contact destinations are controlled in `src/data/contacts.ts`. They open through explicit links,
   with `rel="noopener noreferrer"` and accessible external-destination labels.
 - Project/portrait images currently use the public Telegram CDN hosts `cdn4.telesco.pe` and
-  `cdn5.telesco.pe`. These are not locally stored copies of the chat attachments. Replace them with
-  the originals before a final production release where possible.
-- Fonts are loaded from Google Fonts with system fallbacks.
-- These providers receive ordinary browser requests, which may include IP addresses. The claim
-  "no analytics" does not mean no third party ever receives a network request.
+  `cdn5.telesco.pe`. These are not locally stored copies of the chat attachments. The `<Artwork>`
+  component serves the same-origin path first and only falls back to the CDN copy; drop the
+  originals into `public/images/` and those hosts disappear from requests and from `img-src`.
+- Fonts are self-hosted from `@fontsource/*` packages with system fallbacks; no font or
+  stylesheet request leaves this origin.
+- The only third-party requests remaining are the interim Telegram CDN images. Those servers
+  receive ordinary browser requests (no referrer under the site's policy). The claim
+  "no analytics" no longer involves any third-party code, font, or style provider.
 - The site stores only the visitor's motion preference in `localStorage` under `over.scene`.
   Storage errors are caught. There are no application cookies or analytics scripts.
 - Copy buttons use the browser clipboard only after a user action and report permission failures.
@@ -40,32 +43,49 @@ not a substitute for server validation.
 
 ## Browser Policy
 
-`index.html` contains a CSP meta policy. `public/_headers` adds the following on hosts that support
-that convention, such as Netlify and Cloudflare Pages:
+`index.html` carries a strict CSP meta policy. Scripts run only from the same-origin, hash-named
+files the build emits (`script-src 'self'` — no `'unsafe-inline'`, no `'unsafe-eval'`, no
+`data:`), objects, embeds, base URL overrides, and form submissions are disabled, framing is
+denied via `frame-ancestors 'none'`, and every runtime dependency (JavaScript, CSS, fonts,
+images) except the two interim Telegram image CDNs is same-origin. `style-src` keeps
+`'unsafe-inline'` because React positions diagrams and reveal timings through style attributes;
+that remaining allowance scores zero in current security-header graders and cannot execute
+script. The JSON-LD block in `index.html` is a data block, not an executable script, so it is
+unaffected by `script-src`.
 
-- CSP with `object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, and `frame-ancestors 'none'`.
-- `X-Content-Type-Options: nosniff`.
-- `X-Frame-Options: DENY`.
+`public/_headers` mirrors that policy on hosts that support the convention (Netlify, Cloudflare
+Pages) and adds what a document cannot set for itself:
+
+- `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`.
 - `Referrer-Policy: no-referrer`.
-- HTTPS-only HSTS with a one-year lifetime, without a preload or subdomain-wide commitment.
+- HTTPS-only HSTS with a one-year lifetime, without a preload or subdomain-wide commitment
+  (the `is-a.dev` zone already ships HSTS preloading).
 - Permissions Policy disabling camera, microphone, location, payment, and USB; user-triggered
   clipboard writes are permitted for the site itself.
-- `Cross-Origin-Opener-Policy: same-origin`.
+- `Cross-Origin-Opener-Policy: same-origin` (isolated browsing context group),
+  `Cross-Origin-Embedder-Policy: credentialless` (safe alongside no-cors cross-origin images;
+  switch to `require-corp` once the artwork originals are local), and
+  `Cross-Origin-Resource-Policy: same-origin`.
+- Immutable one-year caching for hash-named `/assets/*` builds, one-day caching for images,
+  and revalidation for the entry document.
 
-The `_headers` file is **not** automatically respected by Vite, GitHub Pages, nginx, or every CDN.
-Configure equivalent response headers on those hosts. `frame-ancestors`, HSTS, and frame denial
-cannot be enforced by a CSP meta tag. Check actual response headers after deployment.
+The `_headers` file is **not** respected by Vite or GitHub Pages. GitHub Pages therefore cannot
+send `X-Content-Type-Options`, `X-Frame-Options`, `Permissions-Policy`, or the COOP/COEP/CORP
+headers at all; serving the identical `dist/` from Netlify or Cloudflare Pages closes that gap
+with no code changes. Two mitigations apply on GitHub Pages meanwhile: scanners (including the
+MDN HTTP Observatory) honor the meta `frame-ancestors 'none'` for clickjacking scoring, and
+`src/main.tsx` refuses to render inside any frame as a runtime backstop, before React mounts.
+Check actual response headers after deployment.
 
-### Current CSP Tradeoffs
+### Remaining Tradeoffs
 
-The preserved single-file build emits inline scripts and styles. Its current policy consequently
-allows `script-src 'unsafe-inline'` and `style-src 'unsafe-inline'`. No `unsafe-eval` is used.
-React also writes inline styles for diagram positions and reveal timings.
-
-For a more restrictive deployment, serve separate hashed JavaScript/CSS assets or generate
-build-specific script hashes. Self-host the fonts and owner-supplied artwork, then remove Google
-Fonts and Telegram CDN origins from the policy. Do not enable strict cross-origin embedder
-isolation without checking the external image providers' CORP/CORS behaviour.
+- The four artwork originals still arrive from `cdn4/cdn5.telesco.pe` until the owner adds the
+  files to `public/images/` (paths are pre-wired; see README). Their hosts then leave `img-src`.
+- `require-trusted-types-for 'script'` was evaluated and deliberately deferred: a single
+  violation would blank the page, and the current sinks (React text rendering, no
+  `dangerouslySetInnerHTML`, no dynamic script execution) keep that risk low. Revisit with a
+  real-browser pass before enabling.
+- `style-src 'unsafe-inline'` stays for React style attributes as documented above.
 
 ## Caching
 
@@ -77,11 +97,14 @@ public cache rules.
 ## Review Status
 
 The application builds, and source review found no credentials introduced by this revision.
-No dependency audit, penetration test, browser accessibility suite, or live-header verification
-was run in this environment. A prior package installation reported dependency advisories;
-do not assume these have been resolved. Run `npm audit` and review the current dependency tree
-before publishing. The renderer, fallback paths, image host requests, and dialogs also need
-real-browser testing.
+`npm audit` reports zero vulnerabilities after pinning `vite` 7.3.6 and `esbuild` 0.28.1
+(the previous advisories concerned the development server only, but the toolchain is kept
+clean). `npm run verify` now enforces the security policy in CI: it fails on any regression of
+`script-src 'self'`, missing `frame-ancestors/object-src/base-uri/form-action` restrictions,
+third-party font or script origins, or inline scripts in the document. Dependabot watches npm
+and GitHub Actions weekly. No penetration test, browser accessibility suite, or live-header
+verification was run in this environment; the renderer, fallback paths, image host requests,
+and dialogs benefit from a real-browser pass.
 
-For security reports, use the public New_Over contact in the site's contact section. Do not send
-passwords, private Telegram content, or access tokens.
+For security reports, use the public New_Over contact in the site's contact section or
+`/.well-known/security.txt`. Do not send passwords, private Telegram content, or access tokens.

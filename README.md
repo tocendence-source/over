@@ -12,11 +12,33 @@ has been copied.
 - `npm run dev` starts development.
 - `npm run build` writes the deployment to `dist/`.
 - `npm run preview` previews that deployment.
+- `npm run verify` typechecks the sources and asserts the content and browser
+  security policy (it also runs in CI before every deploy).
 - No environment variables, Telegram credentials, or backend are required.
 
-Deploy the **whole `dist/` directory**, not only `index.html`. The build inlines JavaScript and
-CSS but leaves image assets, the sitemap, robots.txt, and header configuration as separate files.
-The current Vite configuration is preserved. This is not a Next.js application.
+Deploy the **whole `dist/` directory**, not only `index.html`. The build emits JavaScript and
+CSS as hash-named files under `dist/assets/`, so `index.html` can run with a strict Content
+Security Policy (`script-src 'self'`, no `'unsafe-inline'`). Fonts are self-hosted via
+@fontsource packages — no Google Fonts or any other third-party origin is contacted for code,
+styles, or fonts. This is not a Next.js application.
+
+## Security
+
+The threat model and policy decisions live in `SECURITY.md`. In short:
+
+- Strict CSP delivered as a meta policy: `script-src 'self'`, `object-src 'none'`,
+  `base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`, no third-party origins
+  except the two interim Telegram image CDNs. No cookies, no analytics, no `localStorage`
+  beyond the motion preference.
+- `public/_headers` mirrors that policy and adds the headers a static document cannot set
+  itself (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,
+  COOP/COEP/CORP). GitHub Pages ignores `_headers`; Netlify and Cloudflare Pages honor it, so
+  moving the same `dist/` to such a host raises the header coverage to 100% with no code
+  changes.
+- Framing is also refused at runtime (clickjacking backstop) because browsers ignore
+  `frame-ancestors` inside a meta policy.
+- Dependencies are pinned, audited in CI (`npm audit --audit-level=high`), and kept current by
+  Dependabot. Vulnerability reports: `/.well-known/security.txt`.
 
 ## What Changed
 
@@ -39,23 +61,24 @@ The current Vite configuration is preserved. This is not a Next.js application.
 The four images attached in chat were visible as references, but **were not available as files
 in this workspace**. They have not been recreated or represented as exact local originals.
 
-For now, `src/data/artwork.ts` uses image URLs extracted from the network's public Telegram
-pages. These may differ from the attachments and Telegram CDN URLs may expire. The image
-component has an in-brand fallback if a remote image fails.
+Each record in `src/data/artwork.ts` already declares its final same-origin path in `local`.
+Until the real file exists there, `<Artwork>` automatically serves the interim public Telegram
+CDN copy (`remote`), and falls back to the in-brand placeholder if every source fails. Telegram
+CDN URLs may expire, which is why the originals matter.
 
-To install the exact four originals:
+To install the exact four originals, simply drop the files into `public/images/` — **no code or
+data edits are needed**:
 
-| Chat image | Local file | Record in `src/data/artwork.ts` |
+| Chat image | File to add | Record in `src/data/artwork.ts` |
 | --- | --- | --- |
 | 1. OVER Adapter | `public/images/over-adapter.jpg` | `adapter` |
 | 2. OVER Clan | `public/images/over-clan.jpg` | `clan` |
 | 3. Personal avatar | `public/images/new-over.jpg` | `operator` |
 | 4. ShkoloDrive | `public/images/shkolodrive.jpg` | `shkolodrive` |
 
-After adding each file, set that record's `local` property to its URL, for example
-`local: "/images/over-adapter.jpg"`. No layout changes are necessary. Local files take priority
-over the public Telegram image. Do not import all public images into JavaScript; that would
-duplicate image bytes in the single-file bundle.
+`npm run verify` reports which files are still missing. Once all four are in place, remove
+`https://cdn4.telesco.pe` and `https://cdn5.telesco.pe` from `img-src` in both `index.html` and
+`public/_headers` so the policy becomes fully same-origin.
 
 `public/images/evidence-core.jpg` is a newly generated still of the abstract artifact, used only
 for loading, reduced motion, disabled WebGL, and error recovery. It is not a replacement for any

@@ -1,16 +1,5 @@
-# OVER public site — environment template
+# This file is kept for compatibility with existing documentation.
+# The canonical environment template is .env.example — see that file.
 #
-# The site is fully static. Nothing here is required to build or serve it.
-# Never commit real values. Never expose secrets to the client bundle:
-# anything the browser needs is public by definition.
-
-# Public canonical origin, used for canonical/OG metadata when the site is
-# served from a different host than the default.
-VITE_PUBLIC_ORIGIN=https://over.is-a.dev
-
-# ---------------------------------------------------------------------------
-# Future server-side integration placeholders (server only — never VITE_*)
-# ---------------------------------------------------------------------------
-# TELEGRAM_BOT_TOKEN=placeholder-not-a-real-token
-# RATE_LIMIT_WINDOW_SECONDS=60
-# RATE_LIMIT_MAX_REQUESTS=10
+# Short version: this site builds and serves with no environment variables,
+# and no secret may ever use a VITE_* name.
