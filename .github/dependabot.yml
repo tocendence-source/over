@@ -1,0 +1,34 @@
+# Keep the build toolchain and runtime dependencies patched without manual
+# watching. Security updates are grouped with regular ones but still land as
+# small, reviewable pull requests.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      build-toolchain:
+        patterns:
+          - vite
+          - "@vitejs/*"
+          - "@tailwindcss/*"
+          - tailwindcss
+          - esbuild
+          - typescript
+      runtime:
+        patterns:
+          - react
+          - react-dom
+          - three
+          - "@types/*"
+          - "@fontsource/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

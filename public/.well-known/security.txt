@@ -1,0 +1,4 @@
+Contact: https://t.me/New_Over
+Expires: 2027-09-10T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://over.is-a.dev/.well-known/security.txt

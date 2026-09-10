@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Typecheck and verify content and security policy
+        run: npm run verify
+
       - name: Build
         run: npm run build
 
@@ -41,7 +48,17 @@ jobs:
             echo "ERROR: dist/index.html still points at the dev entry /src/main.tsx"
             exit 1
           fi
-          ls -la dist
+          if ! grep -q "script-src 'self';" dist/index.html; then
+            echo "ERROR: deployed CSP lost script-src 'self'"
+            exit 1
+          fi
+          STRIPPED=$(perl -0777 -pe 's{<script type="application/ld\+json">.*?</script>}{}gs' dist/index.html)
+          if printf '%s' "$STRIPPED" | grep -qzP '<script(?![^>]*\bsrc=)[^>]*>\s*[^<\s]'; then
+            echo "ERROR: dist/index.html contains an inline script; script-src 'self' would block it"
+            exit 1
+          fi
+          test -d dist/assets || { echo "dist/assets is missing"; exit 1; }
+          ls -la dist dist/assets
           du -sh dist
 
       - name: Configure Pages
@@ -55,6 +72,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

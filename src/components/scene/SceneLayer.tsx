@@ -22,8 +22,9 @@ export function SceneLayer({ quality, onDegrade }: { quality: Quality; onDegrade
     const lost = (event: Event) => { event.preventDefault(); fail(); };
     canvas.addEventListener("webglcontextlost", lost);
 
-    // Wait for the document's first paint. The existing single-file bundler
-    // defers execution here, but does not produce a separate network chunk.
+    // Wait for the document's first paint, then fetch the WebGL chunk. The
+    // hashed-asset build keeps three.js (≈145 KB gz) out of the critical path
+    // entirely; reduced-motion and "Motion paused" visitors never download it.
     startFrame = requestAnimationFrame(() => {
       void import("@/webgl/EvidenceCoreScene").then(({ EvidenceCoreScene }) => {
         if (cancelled) return;
