@@ -15,16 +15,16 @@
     "@fontsource/jetbrains-mono": "^5.2.10",
     "@types/three": "^0.182.0",
     "clsx": "2.1.1",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "tailwind-merge": "3.4.0",
-    "three": "^0.182.0"
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
-    "@types/node": "22.19.17",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "5.1.1",
     "esbuild": "0.28.1",
     "tailwindcss": "4.1.17",
