@@ -7,19 +7,16 @@ import { pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-// Bundle the actual TypeScript modules, without changing the application's dependencies.
 async function loadModule(entry) {
   const directory = await mkdtemp(resolve(".over-test-"));
   const outfile = join(directory, "module.mjs");
   try {
     await build({ entryPoints: [entry], outfile, bundle: true, platform: "node", format: "esm", packages: "external", jsx: "automatic", logLevel: "silent" });
     return await import(pathToFileURL(outfile).href);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+  } finally { await rm(directory, { recursive: true, force: true }); }
 }
 
-test("characterization: methodology retains five tabs, output panels, and accessible graph", async () => {
+test("characterization: methodology retains five accessible tabs and panels", async () => {
   const { MethodologyNarrative } = await loadModule("src/components/methodology/MethodologyNarrative.tsx");
   const html = renderToStaticMarkup(createElement(MethodologyNarrative));
   assert.equal((html.match(/role="tab"/g) ?? []).length, 5);
@@ -31,7 +28,18 @@ test("characterization: methodology retains five tabs, output panels, and access
   assert.match(html, /id="methodology"/);
 });
 
-test("characterization: scroll hooks initialize and remove their listeners", async () => {
+test("visual regression contract: sculptural study has a static fallback before WebGL", async () => {
+  const { MethodologyNarrative } = await loadModule("src/components/methodology/MethodologyNarrative.tsx");
+  const html = renderToStaticMarkup(createElement(MethodologyNarrative));
+  assert.match(html, /data-study="sculptural-v2"/);
+  assert.match(html, /data-renderer="fallback"/);
+  assert.match(html, /data-study-fallback="true"/);
+  assert.match(html, /Evidence sculpture/);
+  assert.match(html, /Source fragment/);
+  assert.doesNotMatch(html, /<canvas/); // Do not allocate WebGL during SSR or before motion preference detection.
+});
+
+test("scroll hooks coalesce events and cancel pending work on cleanup", async () => {
   const cleanups = [];
   const listeners = new Map();
   const frames = new Map();
@@ -49,18 +57,17 @@ test("characterization: scroll hooks initialize and remove their listeners", asy
     const hooks = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString("base64")}`);
     hooks.useScrollTracking();
     assert.equal(hooks.sceneBus.scroll, 0.25);
-    listeners.get("scroll")();
-    listeners.get("scroll")();
-    assert.equal(frames.size, 1, "scroll events must coalesce into one frame");
+    listeners.get("scroll")(); listeners.get("scroll")();
+    assert.equal(frames.size, 1);
     for (const cleanup of cleanups) cleanup?.();
     assert.equal(listeners.size, 0);
-    assert.equal(frames.size, 0, "regression: unmount must cancel the pending frame");
+    assert.equal(frames.size, 0);
   } finally {
     for (const [key, descriptor] of previous) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
   }
 });
 
-test("regression: stage geometry preserves fractional progress and reaches the final hold", async () => {
+test("stage geometry stays fractional, monotonic and reaches the final hold", async () => {
   const motion = await loadModule("src/lib/methodologyMotion.ts");
   assert.equal(motion.stageIndex(1.49), 1);
   assert.equal(motion.stageIndex(1.5), 2);
@@ -73,8 +80,7 @@ test("regression: stage geometry preserves fractional progress and reaches the f
   let previous = 0;
   for (let top = 115; top >= -2400; top -= 10) {
     const stage = motion.scrollStage(top, 2400, 700, 115);
-    assert.ok(stage >= previous && stage <= 4);
-    previous = stage;
+    assert.ok(stage >= previous && stage <= 4); previous = stage;
   }
   assert.equal(motion.smoothStage(1, 3, 0), 1);
   assert.ok(motion.smoothStage(1, 3, 1 / 60) > 1);
@@ -82,15 +88,12 @@ test("regression: stage geometry preserves fractional progress and reaches the f
   assert.equal(motion.smoothStage(2.9999, 3, 1 / 60), 3);
 });
 
-test("regression: local dev and preview do not accept arbitrary Host headers", async () => {
-  const config = await readFile("vite.config.ts", "utf8");
-  assert.doesNotMatch(config, /allowedHosts\s*:\s*true/);
+test("local dev and preview do not accept arbitrary Host headers", async () => {
+  assert.doesNotMatch(await readFile("vite.config.ts", "utf8"), /allowedHosts\s*:\s*true/);
 });
 
-// Opt-in real-browser checks: npm install --no-save --package-lock=false playwright
-// then OVER_BROWSER_TESTS=1 node --test tests/methodology-motion.test.mjs
-// Start the production preview on http://127.0.0.1:4173 beforehand.
-test("browser: tabs, resume, scrolling, narrow layout and reduced motion", { skip: process.env.OVER_BROWSER_TESTS !== "1", timeout: 120000 }, async () => {
+// Start npm run preview -- --port 4173 --strictPort and install playwright first.
+test("browser: sculpture, controls, scroll, mobile, reduced motion and context loss", { skip: process.env.OVER_BROWSER_TESTS !== "1", timeout: 120000 }, async () => {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch();
   try {
@@ -100,6 +103,8 @@ test("browser: tabs, resume, scrolling, narrow layout and reduced motion", { ski
     await page.goto("http://127.0.0.1:4173", { waitUntil: "networkidle" });
     const section = page.locator("#methodology");
     await section.scrollIntoViewIfNeeded();
+    const study = section.locator('[data-study="sculptural-v2"]');
+    await study.waitFor();
     const tabs = section.getByRole("tablist", { name: "The five stages of the methodology" }).getByRole("tab");
     assert.equal(await tabs.count(), 5);
     await tabs.nth(0).click();
@@ -113,9 +118,10 @@ test("browser: tabs, resume, scrolling, narrow layout and reduced motion", { ski
       const track = document.querySelector(".method-track");
       const panel = document.querySelector(".method-sticky");
       const top = track.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({ top: top - 115 + (track.offsetHeight - panel.offsetHeight) * 0.35, behavior: "instant" });
+      const anchor = Number.parseFloat(getComputedStyle(panel).top) || 115;
+      window.scrollTo({ top: top - anchor + (track.offsetHeight - panel.offsetHeight) * 0.35, behavior: "instant" });
     });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
     const progress = Number(await section.locator("[data-stage-progress]").getAttribute("data-stage-progress"));
     assert.ok(progress > 0 && progress < 4 && !Number.isInteger(progress), `fractional progress: ${progress}`);
     await tabs.nth(2).click();
@@ -127,10 +133,18 @@ test("browser: tabs, resume, scrolling, narrow layout and reduced motion", { ski
     await tabs.nth(4).click();
     assert.equal(await tabs.nth(4).getAttribute("aria-selected"), "true");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    // A lost context must retain the illustrated content, even on software-rendered CI.
+    if (await study.locator("canvas").count()) {
+      await study.locator("canvas").evaluate((canvas) => canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true })));
+      await page.waitForTimeout(100);
+      assert.equal(await study.getAttribute("data-renderer"), "fallback");
+    }
     await page.emulateMedia({ reducedMotion: "reduce" });
     await tabs.nth(0).click();
     await page.waitForTimeout(100);
     assert.equal(Number(await section.locator("[data-stage-progress]").getAttribute("data-stage-progress")), 0);
+    assert.equal(await study.locator("canvas").count(), 0);
+    assert.equal(await study.getAttribute("data-renderer"), "fallback");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
