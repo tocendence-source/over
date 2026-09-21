@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import ts from "typescript";
+
+// Run lifecycle regression tests against the actual transpiled hook module.
+const motionTests = spawnSync(process.execPath, ["--test", "scripts/motion.test.mjs"], { stdio: "inherit" });
+if (motionTests.error) throw motionTests.error;
+assert.equal(motionTests.status, 0, "Motion lifecycle tests must pass");
 
 const configPath = ts.findConfigFile(".", ts.sys.fileExists, "tsconfig.json");
 assert(configPath, "tsconfig.json is required");
