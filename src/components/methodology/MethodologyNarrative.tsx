@@ -5,198 +5,227 @@ import { Reveal } from "@/components/ui/primitives";
 import { ConfidenceSection } from "@/components/methodology/ConfidenceSection";
 import { sceneBus } from "@/lib/sceneBus";
 import { clamp } from "@/lib/motion";
+import { scrollStage, smoothStage, stageIndex } from "@/lib/methodologyMotion";
 
-/** Node positions of the illustrative evidence graph, in 500x365 viewBox units. */
 const positions = [[140, 78], [285, 62], [393, 142], [368, 274], [239, 307], [112, 256], [80, 160], [246, 181]];
 const edges = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0], [0, 7], [2, 7], [3, 7], [5, 7]];
-/** Total SVG length of each edge — used for the self-draw dash animation. */
-const edgeLength = (a: number, b: number) =>
-  Math.hypot(positions[a][0] - positions[b][0], positions[a][1] - positions[b][1]);
+const SCRUB = { wideLayout: 800, tallLayout: 760, anchorTop: 115 } as const;
 
-/** Scroll scrub constants, documented once instead of magic numbers. */
-const SCRUB = {
-  /** The sticky stage panel is considered "arrived" once its top passes this offset. */
-  anchorTop: 115,
-  /** Stage 5 (report) holds while the panel leaves the viewport, so the last step breathes. */
-  holdFraction: 0.82,
-  /** Below this the whole track length, the denominator falls back to keep the math stable. */
-  minSpan: 260,
-  /** Viewport widths at or under this fall back to tab-driven mode (matches the CSS breakpoint). */
-  wideLayout: 800,
-  /** Viewport heights under this collapse the sticky layout (see the 759px media query). */
-  tallLayout: 760,
-  /** Two consecutive frames without a meaningful change stop the manual-override clock. */
-  settleEpsilon: 0.0015,
-} as const;
-
-/**
- * Illustrative evidence flow, scrubbed by continuous stage progress (0..4) so
- * edges self-draw and nodes spread instead of snapping between five states.
- */
-function EvidenceFlow({ stage }: { stage: number }) {
-  // Per-edge draw progress, eased from the shared stage value with a stagger.
-  const edgeDraw = edges.map(([a, b], i) => clamp((stage - 1.55 - i * 0.045) / 1.15));
-  const stageInt = Math.round(clamp(stage, 0, 4));
-  const validated = clamp(stage - 2.6);
-  const reported = clamp(stage - 3.6);
-  const coreSpread = clamp((stage - 0.25) / 0.75);
-  const output = stages[stageInt].output.toUpperCase();
-  return <svg className="method-graph" viewBox="0 0 500 365" role="img" aria-label={`Illustrative ${stages[stageInt].title.toLowerCase()} stage: ${stages[stageInt].output.toLowerCase()}. No real personal data.`}>
-    <ellipse cx="246" cy="181" rx="195" ry="148" fill="none" stroke="#a8ac99" strokeWidth=".45" />
-    <ellipse cx="246" cy="181" rx="172" ry="110" fill="none" stroke="#b0b2a3" strokeWidth=".45" transform="rotate(-25 246 181)" />
-    <path d="M246 12v21m0 297v21M35 181h20m383 0h22" stroke="#8b927c" strokeWidth=".7" />
-    {/* Correlation edges self-draw, one after another; validation deepens them. */}
+/** Original illustrative artwork: no real records, telemetry or fabricated confidence scores. */
+function EvidenceFlow({ stage, selected }: { stage: number; selected: number }) {
+  const spread = clamp((stage - 0.25) / 0.75);
+  const validated = clamp((stage - 2.45) / 0.55);
+  const reported = clamp(stage - 3);
+  const points = positions.map(([x, y], i) => i === 7 ? [246, 181] : [246 + (x - 246) * spread, 181 + (y - 181) * spread]);
+  return <svg className="method-graph" viewBox="0 0 500 365" role="img" aria-label={`Illustrative ${stages[selected].title.toLowerCase()} stage: ${stages[selected].output.toLowerCase()}. No real personal data.`} style={{ width: "100%", height: "auto", maxHeight: "min(38vh, 365px)", overflow: "visible" }}>
+    <ellipse cx="246" cy="181" rx="195" ry="148" fill="none" stroke="#a8ac99" strokeWidth=".5" opacity=".6" />
+    <ellipse cx="246" cy="181" rx={105 + spread * 67} ry={56 + spread * 54} fill="none" stroke="#a8ac99" strokeWidth=".5" transform={`rotate(${-25 + stage * 4} 246 181)`} />
+    <path d="M246 12v15m0 309v15M35 181h15m393 0h15" stroke="#8b927c" strokeWidth=".8" />
+    <g opacity={(1 - spread) * 0.8}>
+      <circle cx="246" cy="181" r="57" fill="none" stroke="#8e825f" strokeWidth=".65" />
+      <circle cx="246" cy="181" r="65" fill="none" stroke="#8e825f" strokeWidth=".6" strokeDasharray="2 8" />
+      <path d="M154 128h20v-20m144 0v20h20M154 234h20v20m144 0v-20h20" fill="none" stroke="#747d5f" strokeWidth="1" />
+    </g>
     {edges.map(([a, b], i) => {
-      const len = edgeLength(a, b);
-      const drawn = edgeDraw[i];
-      if (drawn <= 0) return null;
-      return <line key={`e${i}`} className="method-edge" x1={positions[a][0]} y1={positions[a][1]} x2={positions[b][0]} y2={positions[b][1]} opacity={clamp(drawn * 1.25)} stroke={validated > 0 ? "#68754c" : "#8e825f"} strokeWidth={0.8 + validated * 0.5} strokeDasharray={len} strokeDashoffset={len * (1 - drawn)} style={{ transitionDelay: `${i * 30}ms` }} />;
+      const drawn = clamp((stage - 1.05 - i * 0.035) / 0.6);
+      if (!drawn) return null;
+      return <line key={`edge-${i}`} x1={points[a][0]} y1={points[a][1]} x2={points[b][0]} y2={points[b][1]} pathLength={1} stroke={validated > 0 ? "#68754c" : "#8e825f"} strokeWidth={0.8 + validated * 0.5} strokeDasharray="1" strokeDashoffset={1 - drawn} opacity={drawn * (0.6 + validated * 0.4)} />;
     })}
-    {positions.map(([x, y], i) => {
-      const sx = 246 + (x - 246) * coreSpread;
-      const sy = 181 + (y - 181) * coreSpread;
-      const ring = clamp((validated - 0.15) * 2);
-      if (i !== 7 && coreSpread <= 0) return null;
-      return <g key={`n${i}`} opacity={i === 7 ? 1 : clamp(coreSpread * 1.6)}>
-        {ring > 0 && i !== 7 && <circle className="method-validate-ring" cx={sx} cy={sy} r={18} fill="none" stroke="#939c7d" strokeWidth=".7" opacity={ring} style={{ animationDelay: `${i * 120}ms` }} />}
-        <circle cx={sx} cy={sy} r={i === 7 ? 27 : 8 + validated * 4} fill={i === 7 ? "#333c28" : "#eae8df"} stroke="#747d5f" strokeWidth="1.1" />
-        <circle cx={sx} cy={sy} r={i === 7 ? 4 : 2.7} fill={i === 7 ? "#d6c194" : "#8e7a4d"} />
+    {points.map(([x, y], i) => {
+      const core = i === 7;
+      if (!core && spread <= 0) return null;
+      return <g key={`node-${i}`} opacity={core ? 1 : clamp(spread * 1.5)}>
+        {!core && <circle cx={x} cy={y} r={18} fill="none" stroke="#747d5f" strokeWidth=".7" opacity={validated} />}
+        {core && <circle cx={x} cy={y} r={35} fill="none" stroke="#8e825f" strokeWidth=".7" />}
+        <circle cx={x} cy={y} r={core ? 27 : 8 + validated * 4} fill={core ? "#333c28" : "#eae8df"} stroke="#747d5f" strokeWidth="1.1" />
+        <circle cx={x} cy={y} r={core ? 4 : 2.7} fill={core ? "#d6c194" : "#8e7a4d"} />
+        {!core && <path d={`M${x - 4} ${y}l3 3 6-7`} fill="none" stroke="#333c28" strokeWidth="1" opacity={validated} />}
       </g>;
     })}
-    <g className="method-report" opacity={reported}>
-      <rect x="56" y="33" width="393" height="297" rx="1" fill="none" stroke="#788063" strokeWidth=".8" />
-      <path d="M72 52h32M72 57h18M406 310l6 6 12-14" stroke="#6f7957" strokeWidth="1.1" fill="none" />
+    <g opacity={reported}>
+      <path d="M56 65V33h32m329 0h32v32M56 298v32h32m329 0h32v-32" fill="none" stroke="#68754c" strokeWidth="1" />
+      <path d="M73 51h32m-32 6h18M407 310l6 6 12-14" stroke="#68754c" strokeWidth="1.2" fill="none" />
     </g>
-    <text x="246" y="359" textAnchor="middle" fill="#737a64" fontFamily="monospace" fontSize="8" letterSpacing="2">{output}</text>
   </svg>;
 }
 
 export function MethodologyNarrative() {
-  const [autoStage, setAutoStage] = useState(0);
+  const [displayStage, setDisplayStage] = useState(0);
   const [manualStage, setManualStage] = useState<number | null>(null);
   const track = useRef<HTMLDivElement>(null);
+  const sticky = useRef<HTMLDivElement>(null);
   const visualRef = useRef<HTMLDivElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const autoStageRef = useRef(0);
-  const selected = manualStage ?? autoStage;
-
-  // Continuous scrub: stage float drives the SVG; the integer drives copy + tabs.
-  const setScrolledStage = (next: number) => {
-    const index = Math.min(4, Math.max(0, Math.round(next)));
-    if (index !== autoStageRef.current) {
-      autoStageRef.current = index;
-      setAutoStage(index);
-    }
-  };
+  const manual = useRef<number | null>(null);
+  const target = useRef(0);
+  const current = useRef(0);
+  const wake = useRef<() => void>(() => {});
+  const selected = manualStage ?? stageIndex(displayStage);
 
   useEffect(() => {
     const node = track.current;
-    if (!node) return;
+    const panel = sticky.current;
+    if (!node || !panel) return;
     let frame = 0;
+    let previousTime = 0;
     let inView = true;
-
-    const reducedMotion = () =>
-      document.documentElement.dataset.motion === "reduced" ||
-      (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-
+    let dirty = true;
+    const reducedQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reduced = () => document.documentElement.dataset.motion === "reduced" || reducedQuery.matches;
+    const wide = () => window.innerWidth > SCRUB.wideLayout && window.innerHeight >= SCRUB.tallLayout;
+    const publish = (value: number) => {
+      current.current = value;
+      setDisplayStage(value);
+      sceneBus.stageProgress = value / 4;
+      sceneBus.stageIndex = manual.current ?? stageIndex(value);
+    };
     const measure = () => {
-      frame = 0;
-      if (!track.current || window.innerWidth <= SCRUB.wideLayout || window.innerHeight < SCRUB.tallLayout || reducedMotion()) return;
-      // While the visitor drives the tabs, scroll does not fight the selection —
-      // but as soon as the block leaves the viewport, manual mode expires so the
-      // scroll sequence resumes on the next entry.
-      if (manualStage !== null) {
-        const rect = track.current.getBoundingClientRect();
-        const visible = rect.top < window.innerHeight && rect.bottom > 0;
-        if (visible) return;
+      const rect = node.getBoundingClientRect();
+      const visible = rect.top < window.innerHeight && rect.bottom > 0;
+      // Manual control is never stolen while the panel is on screen.
+      if (manual.current !== null && !visible && wide() && !reduced()) {
+        manual.current = null;
+        setManualStage(null);
       }
-      if (document.activeElement && track.current.contains(document.activeElement)) return;
-      const rect = track.current.getBoundingClientRect();
-      const span = Math.max(rect.height - window.innerHeight * (1 - SCRUB.holdFraction), SCRUB.minSpan);
-      const progress = clamp((SCRUB.anchorTop - rect.top) / span);
-      setScrolledStage(progress * 4);
+      if (manual.current !== null) { target.current = manual.current; return; }
+      if (!wide() || reduced()) { target.current = stageIndex(current.current); return; }
+      // Keep an actively operated tab stable for keyboard users.
+      if (visible && tabs.current.some((tab) => tab === document.activeElement)) return;
+      const computedTop = Number.parseFloat(getComputedStyle(panel).top);
+      const anchor = Number.isFinite(computedTop) ? computedTop : SCRUB.anchorTop;
+      target.current = scrollStage(rect.top, rect.height, panel.offsetHeight, anchor);
     };
-
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
-
-    // Gate the global scroll listener on intersection: no work while off-screen.
-    const observer = typeof IntersectionObserver !== "undefined"
-      ? new IntersectionObserver((entries) => { inView = entries.some((entry) => entry.isIntersecting); if (inView) schedule(); }, { rootMargin: "20% 0px" })
-      : undefined;
-    observer?.observe(node);
-
-    measure();
-    window.addEventListener("scroll", schedule, { passive: true });
+    const tick = (time: number) => {
+      frame = 0;
+      if (document.hidden) { previousTime = 0; return; }
+      if (dirty) { dirty = false; measure(); }
+      const dt = previousTime ? (time - previousTime) / 1000 : 1 / 60;
+      previousTime = time;
+      const value = reduced() || !inView ? target.current : smoothStage(current.current, target.current, dt);
+      if (value !== current.current) publish(value);
+      if (value !== target.current && inView && !reduced()) frame = requestAnimationFrame(tick);
+      else previousTime = 0;
+    };
+    const schedule = () => {
+      dirty = true;
+      if (!frame && !document.hidden) frame = requestAnimationFrame(tick);
+    };
+    const onScroll = () => { if (inView || manual.current !== null) schedule(); };
+    const onVisibility = () => {
+      if (document.hidden) { cancelAnimationFrame(frame); frame = 0; previousTime = 0; }
+      else schedule();
+    };
+    wake.current = schedule;
+    const intersection = typeof IntersectionObserver === "undefined" ? undefined : new IntersectionObserver((entries) => {
+      inView = entries.some((entry) => entry.isIntersecting);
+      schedule();
+    });
+    intersection?.observe(node);
+    const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(schedule);
+    resize?.observe(node);
+    resize?.observe(panel);
+    const preference = new MutationObserver(schedule);
+    preference.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+    reducedQuery.addEventListener("change", schedule);
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", schedule, { passive: true });
+    node.addEventListener("focusout", schedule);
+    document.addEventListener("visibilitychange", onVisibility);
+    schedule();
     return () => {
+      wake.current = () => {};
       cancelAnimationFrame(frame);
-      observer?.disconnect();
-      window.removeEventListener("scroll", schedule);
+      intersection?.disconnect();
+      resize?.disconnect();
+      preference.disconnect();
+      reducedQuery.removeEventListener("change", schedule);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", schedule);
-    };
-  }, [manualStage]);
-
-  useEffect(() => {
-    const stageIndex = Math.round(clamp(selected, 0, 4));
-    sceneBus.stageIndex = stageIndex;
-    sceneBus.stageProgress = clamp(selected / 4);
-  }, [selected]);
-
-  // Cursor tilt on the visual — a quiet parallax layer, disabled for coarse pointers.
-  useEffect(() => {
-    const visual = visualRef.current;
-    if (!visual || typeof window.matchMedia !== "function" || window.matchMedia("(pointer: coarse)").matches) return;
-    const reduced = () => document.documentElement.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let frame = 0;
-    const apply = (tx: number, ty: number) => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        visual.style.setProperty("--tilt-x", tx.toFixed(3));
-        visual.style.setProperty("--tilt-y", ty.toFixed(3));
-      });
-    };
-    const onMove = (event: PointerEvent) => {
-      if (reduced()) return;
-      const rect = visual.getBoundingClientRect();
-      const nx = clamp((event.clientX - rect.left) / Math.max(rect.width, 1));
-      const ny = clamp((event.clientY - rect.top) / Math.max(rect.height, 1));
-      apply((nx - 0.5) * 6, (0.5 - ny) * 5);
-    };
-    const onLeave = () => apply(0, 0);
-    visual.addEventListener("pointermove", onMove, { passive: true });
-    visual.addEventListener("pointerleave", onLeave, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      visual.removeEventListener("pointermove", onMove);
-      visual.removeEventListener("pointerleave", onLeave);
-      apply(0, 0);
+      node.removeEventListener("focusout", schedule);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
+  useEffect(() => {
+    const visual = visualRef.current;
+    if (!visual) return;
+    const pointerQuery = window.matchMedia("(pointer: fine)");
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let frame = 0;
+    const clear = () => {
+      cancelAnimationFrame(frame); frame = 0;
+      visual.style.setProperty("--tilt-x", "0");
+      visual.style.setProperty("--tilt-y", "0");
+    };
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse" || !pointerQuery.matches || motionQuery.matches || document.documentElement.dataset.motion === "reduced") { clear(); return; }
+      const rect = visual.getBoundingClientRect();
+      const x = (clamp((event.clientX - rect.left) / Math.max(rect.width, 1)) - 0.5) * 3;
+      const y = (0.5 - clamp((event.clientY - rect.top) / Math.max(rect.height, 1))) * 2;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        visual.style.setProperty("--tilt-x", x.toFixed(3));
+        visual.style.setProperty("--tilt-y", y.toFixed(3));
+      });
+    };
+    const preference = new MutationObserver(clear);
+    preference.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+    pointerQuery.addEventListener("change", clear);
+    motionQuery.addEventListener("change", clear);
+    visual.addEventListener("pointermove", onMove, { passive: true });
+    visual.addEventListener("pointerleave", clear);
+    window.addEventListener("blur", clear);
+    return () => {
+      clear(); preference.disconnect();
+      pointerQuery.removeEventListener("change", clear);
+      motionQuery.removeEventListener("change", clear);
+      visual.removeEventListener("pointermove", onMove);
+      visual.removeEventListener("pointerleave", clear);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
+
+  const select = (index: number | null) => {
+    manual.current = index;
+    setManualStage(index);
+    if (index !== null) { target.current = index; sceneBus.stageIndex = index; }
+    wake.current();
+  };
   const onKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = event.key === "ArrowRight" ? (index + 1) % 5 : event.key === "ArrowLeft" ? (index + 4) % 5 : event.key === "Home" ? 0 : event.key === "End" ? 4 : -1;
     if (next < 0) return;
-    event.preventDefault(); setManualStage(next); tabs.current[next]?.focus();
+    event.preventDefault(); select(next); tabs.current[next]?.focus();
   };
 
   return <Section id="methodology" index="03" name="The methodology" paper className="method-section">
     <div ref={track} className="method-track">
-      <div className="method-sticky">
+      <div ref={sticky} className="method-sticky">
         <div className="section-intro"><Reveal><h2 className="section-heading" id="methodology-heading">From a trace<br /><em>to a finding.</em></h2></Reveal><Reveal delay={90}><p className="lede">{methodology.intro}</p></Reveal></div>
         <div className="method-layout">
           <div className="method-info">
-            <div className="method-count"><strong>{stages[Math.round(clamp(selected, 0, 4))].index}</strong> / 05</div>
-            {stages.map((stage, index) => <div key={stage.id} id={`method-panel-${index}`} role="tabpanel" aria-labelledby={`method-tab-${index}`} hidden={Math.round(clamp(selected, 0, 4)) !== index}>
+            <div className="method-count"><strong>{stages[selected].index}</strong> / 05</div>
+            {stages.map((stage, index) => <div key={stage.id} id={`method-panel-${index}`} role="tabpanel" aria-labelledby={`method-tab-${index}`} hidden={selected !== index} tabIndex={0}>
               <h3>{stage.body}</h3><p>{stage.detail}</p>
               <div className="method-output"><span>Output</span><span>{stage.output}</span></div>
             </div>)}
           </div>
-          <div ref={visualRef} className="method-visual"><EvidenceFlow stage={selected} /></div>
+          <div ref={visualRef} className="method-visual" data-stage-progress={displayStage.toFixed(4)} style={{ minWidth: 0, background: "transparent", boxShadow: "none", borderRadius: 0 }}>
+            <figure style={{ margin: 0, width: "100%", padding: "clamp(12px, 2vw, 24px)", borderBlock: "1px solid var(--line)" }}>
+              <div className="label-sm" aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--muted)", marginBottom: 8 }}><span>Evidence study</span><span>{stages[selected].index} / 05</span></div>
+              <EvidenceFlow stage={displayStage} selected={selected} />
+              <figcaption style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "8px 16px", paddingTop: 12 }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px, 2.4vw, 34px)", lineHeight: 1.15, color: "var(--ink)" }}>{stages[selected].output}</span>
+                <span className="label-sm" style={{ color: "var(--muted)" }}>Illustrative process</span>
+              </figcaption>
+              <div aria-hidden="true" style={{ height: 1, background: "var(--line)", marginTop: 16, overflow: "hidden" }}><div style={{ height: "100%", background: "var(--gold)", transformOrigin: "left", transform: `scaleX(${0.08 + displayStage / 4 * 0.92})` }} /></div>
+            </figure>
+          </div>
         </div>
         <div className="method-tabs" role="tablist" aria-label="The five stages of the methodology">
-          {stages.map((stage, index) => <button key={stage.id} id={`method-tab-${index}`} ref={(node) => { tabs.current[index] = node; }} type="button" role="tab" className="method-tab" aria-controls={`method-panel-${index}`} aria-selected={Math.round(clamp(selected, 0, 4)) === index} tabIndex={Math.round(clamp(selected, 0, 4)) === index ? 0 : -1} onClick={() => setManualStage(index)} onKeyDown={(event) => onKey(event, index)}><span>{stage.index}</span>{stage.title}</button>)}
+          {stages.map((stage, index) => <button key={stage.id} id={`method-tab-${index}`} ref={(node) => { tabs.current[index] = node; }} type="button" role="tab" className="method-tab" aria-controls={`method-panel-${index}`} aria-selected={selected === index} tabIndex={selected === index ? 0 : -1} onClick={() => select(index)} onKeyDown={(event) => onKey(event, index)}><span>{stage.index}</span>{stage.title}</button>)}
         </div>
-        <div className="method-note"><span>{methodology.corePhrase}</span>{manualStage !== null ? <button type="button" className="method-reset" onClick={() => setManualStage(null)}>Resume scroll sequence</button> : <span className="scroll-method-hint">Scroll to follow, or select a step</span>}</div>
+        <div className="method-note"><span>{methodology.corePhrase}</span>{manualStage !== null ? <button type="button" className="method-reset" onClick={() => select(null)}>Resume scroll sequence</button> : <span className="scroll-method-hint">Scroll to follow, or select a step</span>}</div>
       </div>
     </div>
     <ConfidenceSection />
