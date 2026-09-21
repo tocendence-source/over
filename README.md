@@ -1,183 +1,168 @@
 # OVER
 
-An editorial portfolio for the OVER research community, its OSINT projects, and New_Over.
-The existing procedural 3D artifact is retained, with a quieter interface inspired by the
-spatial clarity and typography of Sharplink. No reference layout, artwork, code, or branding
-has been copied.
+Editorial portfolio for the OVER research community, its OSINT projects, and New_Over.
+React 19, TypeScript, Vite 7, Tailwind CSS 4 and Three.js. No backend, Telegram credentials or environment variables are required.
 
-## Setup
+## This branch: partial implementation, not a verified release
 
-- React 19, TypeScript, Vite 7, Tailwind CSS 4, and Three.js.
-- `npm install` installs the existing dependencies.
-- `npm run dev` starts development.
-- `npm run build` writes the deployment to `dist/`.
-- `npm run preview` previews that deployment.
-- `npm run verify` typechecks the sources and asserts the content and browser
-  security policy (it also runs in CI before every deploy).
-- No environment variables, Telegram credentials, or backend are required.
+`upgrade/over-polish` preserves the section order, routes, public contacts and original Three.js artifact.
 
-Deploy the **whole `dist/` directory**, not only `index.html`. The build emits JavaScript and
-CSS as hash-named files under `dist/assets/`, so `index.html` can run with a strict Content
-Security Policy (`script-src 'self'`, no `'unsafe-inline'`). Fonts are self-hosted via
-@fontsource packages — no Google Fonts or any other third-party origin is contacted for code,
-styles, or fonts. This is not a Next.js application.
+| Area | Status |
+| --- | --- |
+| Methodology | Continuous fractional SVG progress, frame-rate-independent damping and actual sticky travel |
+| Initial trace | Original editorial figure, readable caption, progressive entities and links, validation and report frame |
+| Manual controls | Keyboard tabs retained; explicit resume and desktop off-screen reset |
+| Lifecycle | Pending global scroll frame cancelled; tilt cleanup no longer schedules a frame; motion preference changes observed |
+| Local Vite | Host validation restored; loopback binding by default |
+| Tests | Characterization, regression and opt-in Chromium tests added before implementation changes; not executed in the editing environment |
+| Main Three.js model | Unchanged; enhancement remains pending full source inspection and visual tests |
+| Global stylesheet | Unchanged; new visual styling is scoped to the methodology component |
+| CI / compiled ZIP | Workflow creation failed through the connector and was verified absent. No successful check run or compiled ZIP exists for this branch |
 
-## Security
+Do not interpret committed code as a passed build, security certification or visual approval.
 
-The threat model and policy decisions live in `SECURITY.md`. In short:
+## Local setup
 
-- Strict CSP delivered as a meta policy: `script-src 'self'`, `object-src 'none'`,
-  `base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`, no third-party origins
-  except the two interim Telegram image CDNs. No cookies, no analytics, no `localStorage`
-  beyond the motion preference.
-- `public/_headers` mirrors that policy and adds the headers a static document cannot set
-  itself (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,
-  COOP/COEP/CORP). GitHub Pages ignores `_headers`; Netlify and Cloudflare Pages honor it, so
-  moving the same `dist/` to such a host raises the header coverage to 100% with no code
-  changes.
-- Framing is also refused at runtime (clickjacking backstop) because browsers ignore
-  `frame-ancestors` inside a meta policy.
-- Dependencies are pinned, audited in CI (`npm audit --audit-level=high`), and kept current by
-  Dependabot. Vulnerability reports: `/.well-known/security.txt`.
+Use Node.js 22 and the committed lockfile. From this directory:
 
-## What Changed
+```bash
+npm ci
+npm run verify
+node --test tests/methodology-motion.test.mjs
+npm audit --audit-level=high
+npm run build
+npm run dev
+```
 
-- Removed the access section, clearance copy, LIMITED labels, node identifiers, fabricated
-  telemetry, and the blocking introduction at the owner's request.
-- Replaced small terminal-style buttons with readable capsule actions and an animated arrow.
-- Added alternating graphite and warm-paper sections, a larger OVER wordmark, project artwork,
-  a human-readable about section, and direct Telegram contact links.
-- Preserved all four systems, their useful capabilities, the five-stage methodology, confidence
-  labels, OSINT / GEOINT / HUMINT positioning, community roles, and the operator's public handles.
-- Kept the original ShkoloDrive invitation as a secondary direct channel link. Its publicly
-  verified `@ShkoloDrive` adapter is the main destination, without any clearance UI.
-- No fake case studies, metrics, institutional affiliations, or biographies were added.
-- Link review found that `@cislog` now displays a VPN service. Its original user-protection
-  description and destination are preserved as an explicitly labelled archive, not presented as
-  a verified active protection service. A replacement protection-project link was not invented.
+Open the local URL printed by Vite. Do not open `index.html` using `file://`.
+`npm run preview` serves the `dist/` generated by `npm run build`.
+There is no lint command configured; typechecking does not replace linting or browser tests.
 
-## Artwork: Originals Still Required
+For a trusted LAN preview, explicitly pass `--host 0.0.0.0`; this exposes the server to the network. For a domain you own, configure `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`. Do not restore `allowedHosts: true`.
 
-The four images attached in chat were visible as references, but **were not available as files
-in this workspace**. They have not been recreated or represented as exact local originals.
+## Browser regression tests
 
-Each record in `src/data/artwork.ts` already declares its final same-origin path in `local`.
-Until the real file exists there, `<Artwork>` automatically serves the interim public Telegram
-CDN copy (`remote`), and falls back to the in-brand placeholder if every source fails. Telegram
-CDN URLs may expire, which is why the originals matter.
+Install test tooling without changing the application lockfile:
 
-To install the exact four originals, simply drop the files into `public/images/` — **no code or
-data edits are needed**:
+```bash
+npm install --no-save --package-lock=false playwright
+npx playwright install chromium
+npm run build
+npm run preview -- --port 4173 --strictPort
+```
 
-| Chat image | File to add | Record in `src/data/artwork.ts` |
+In another terminal, on macOS/Linux:
+
+```bash
+OVER_BROWSER_TESTS=1 node --test tests/methodology-motion.test.mjs
+```
+
+On PowerShell:
+
+```powershell
+$env:OVER_BROWSER_TESTS = "1"
+node --test tests/methodology-motion.test.mjs
+Remove-Item Env:OVER_BROWSER_TESTS
+```
+
+The opt-in checks cover five tabs, Home/End navigation, resume, fractional scroll progress, off-screen reset, narrow layout and reduced motion. They are not a complete accessibility or cross-browser audit. Without the environment flag, the browser test is explicitly skipped. `npm ci` restores only the locked dependencies afterward.
+
+## Downloading and packaging
+
+Select branch `upgrade/over-polish` on GitHub, then **Code → Download ZIP** for the current sources. This source archive does not contain `node_modules` or a production `dist/`.
+
+After all local checks pass, a Git checkout can produce a source ZIP:
+
+```bash
+git archive --format=zip --prefix=over/ --output=over-polish-source.zip HEAD
+```
+
+The existing `.github/workflows/deploy.yml` still deploys on pushes to `main` or manual dispatch. This branch does not change deployment. The attempted independent quality/packaging workflow was not saved; create and review it separately before relying on CI. Never dispatch the deployment workflow merely to test this branch.
+
+## Design research — retrieved 2026-09-21
+
+| Reference | Verified status | Relevant direction |
 | --- | --- | --- |
-| 1. OVER Adapter | `public/images/over-adapter.jpg` | `adapter` |
-| 2. OVER Clan | `public/images/over-clan.jpg` | `clan` |
-| 3. Personal avatar | `public/images/new-over.jpg` | `operator` |
-| 4. ShkoloDrive | `public/images/shkolodrive.jpg` | `shkolodrive` |
+| [USAvionix](https://www.awwwards.com/sites/usavionix) | Site of the Day, September 9, 2026 | 3D/WebGL and storytelling |
+| [WeEvolveIT](https://www.awwwards.com/sites/weevolveit) | Nominee, September 14, 2026 | Charcoal palette and motion-driven WebGL/GSAP presentation |
 
-`npm run verify` reports which files are still missing. Once all four are in place, remove
-`https://cdn4.telesco.pe` and `https://cdn5.telesco.pe` from `img-src` in both `index.html` and
-`public/_headers` so the policy becomes fully same-origin.
+Dates and technologies were checked using Awwwards descriptions and listings. The editing environment did not support interactive visual inspection of these websites. No source code, model, texture, branding or layout was copied. These references are not claims that OVER reproduces their effects.
 
-`public/images/evidence-core.jpg` is a newly generated still of the abstract artifact, used only
-for loading, reduced motion, disabled WebGL, and error recovery. It is not a replacement for any
-of the owner's four images. `public/images/og.jpg` remains the social preview.
+## Content and routes
 
-## Content and Routes
-
-| Location | Purpose |
+| Source | Responsibility |
 | --- | --- |
-| `src/data/site.ts` | Brand, introductory text, and section copy |
-| `src/data/contacts.ts` | Single source for every outbound contact destination |
-| `src/data/systems.ts` | Project descriptions, capabilities, and route IDs |
-| `src/data/network.ts` | Research, analysis, security, and data roles |
-| `src/data/methodology.ts` | Five stages and qualitative confidence descriptions |
-| `src/data/operator.ts` | Factual founder/operator information |
-| `src/data/artwork.ts` | Image provenance, replacement filenames, and alt text |
+| `src/data/site.ts` | Brand and section copy |
+| `src/data/contacts.ts` | Outbound destinations |
+| `src/data/systems.ts` | Four projects and detail routes |
+| `src/data/network.ts` | Community roles |
+| `src/data/methodology.ts` | Five stages and qualitative confidence labels |
+| `src/data/operator.ts` | Public founder information |
+| `src/data/artwork.ts` | Image provenance and fallbacks |
 
-The site uses hash routing so direct links work on static hosts without a rewrite rule.
-
-| URL | Behaviour |
+| Route | Behaviour |
 | --- | --- |
-| `/` | Complete single-page portfolio |
-| `#/network` | Scroll to the network |
-| `#/systems` | Scroll to the interactive project index |
-| `#/methodology` | Scroll to the methodology |
-| `#/operator` | Scroll to New_Over |
-| `#/contact` | Scroll to contact links |
+| `/` | Full portfolio |
+| `#/network` | Network section |
+| `#/systems` | Project index |
+| `#/methodology` | Methodology section |
+| `#/operator` | New_Over section |
+| `#/contact` | Public contact links |
 | `#/systems/overnetting` | OverNetting detail |
 | `#/systems/shkolodrive` | ShkoloDrive detail |
 | `#/systems/over-adapter` | OVER Adapter detail |
 | `#/systems/cislog` | CISLOG detail |
-| `#/access`, `#access` | Redirect to contact; no access page remains |
-| `#hero`, `#/hero` | Home |
-| Unknown hash route | A usable not-found view |
+| `#/access` | Legacy redirect to contact |
+| `#access` | Legacy redirect to contact |
+| `#hero` | Home |
+| `#/hero` | Home |
+| Unknown route | Not-found view |
 
-Legacy `#network` and `#contact` anchors still work. Only the root is listed in the sitemap
-because fragment routes are parts of the same indexable document. A semantic no-JavaScript
-content summary with real project/contact links is included in `index.html`.
+Legacy section anchors remain supported. Hash routing does not require server rewrites. Only the root belongs in the sitemap. The no-JavaScript summary remains in `index.html`.
 
-## Interactions
+The existing content labels CISLOG as an archive because its original link was previously found to open a VPN service. This revision does not re-verify Telegram channel ownership, admission, bot operation or current destinations. No replacement links or personal records have been invented.
 
-- A pointer instrument layer (`src/lib/traceOverlay.ts`) turns the cursor into a scanner: a reticle
-  trails it, detection frames lock onto the path it travels, dashed lines correlate them, and
-  corner brackets snap to whichever control is hovered. Clicking empty space commits one frame.
-  Labels show the pointer's real screen coordinates and ambient words only — never invented
-  confidence scores. Ink flips between ivory and graphite so it stays readable on light sections.
-  It is mouse-only, decorative, `aria-hidden`, disabled by the motion toggle and by reduced motion,
-  and its loop sleeps while the pointer is idle.
-- The project index supports clicks, pointer feedback, arrow keys, Home, and End. A project
-  selection updates the related capsule in the 3D scene. Detail pages include previous/next links.
-- The network diagram lets visitors select a role and read its description.
-- On desktop, scrolling moves through the methodology. Selecting a stage switches to manual
-  control until "Resume scroll sequence" is chosen. Mobile uses the same fully keyboard-operable
-  stage controls without a long sticky scroll area.
-- Confidence labels are qualitative. No invented percentages or live data appear in the diagrams.
-- The avatar/community artwork can be enlarged in native HTML dialogs. Escape closes them,
-  focus returns to the trigger, and the background cannot receive focus while the dialog is open.
-- Contact handles can be copied. The UI reports actual clipboard success or failure.
-- "Motion paused" replaces WebGL with the static image and stops CSS motion. The preference is
-  stored locally. System reduced-motion preferences take priority.
+## Artwork
 
-## 3D and Performance
+`Artwork` prefers local files and otherwise uses the configured temporary Telegram CDN image and then an in-brand fallback. Check the actual output of `npm run verify` for missing local originals; do not assume all assets are present or missing from this document alone.
 
-The existing segmented metal shell, inner kernel, gyroscope, engraved rings, four glass capsules,
-and procedural studio environment remain in `src/webgl/EvidenceCoreScene.ts`.
+| Artwork | Local path |
+| --- | --- |
+| OVER Adapter | `public/images/over-adapter.jpg` |
+| OVER Clan | `public/images/over-clan.jpg` |
+| New_Over | `public/images/new-over.jpg` |
+| ShkoloDrive | `public/images/shkolodrive.jpg` |
 
-- Desktop: full artifact with limited bloom only when floating-point render targets are supported.
-- Mid-range: fewer particles and fragments, lower DPR, no bloom.
-- Narrow mobile: simplified artifact, fewer rings, no particles or fragments, DPR 1.
-- Reduced motion / no WebGL / renderer or context error: still image; SVG is a second fallback.
-- The fixed canvas stops rendering behind opaque sections and while the document is hidden.
-- Shader errors are routed to the image fallback instead of leaving an empty canvas.
-- Renderer resources, post-processing passes, and textures are disposed on teardown.
+The static artifact poster is `public/images/evidence-core.jpg`, and the social preview is `public/images/og.jpg`. Once the four local originals are confirmed to work, review removal of the Telegram CDN origins from both CSP definitions. CDN URLs may expire.
 
-The module is dynamically imported after the first paint, but the existing `vite-plugin-singlefile`
-configuration inlines its code. This defers execution, **not the download of Three.js**. True
-network code-splitting is a future hosting/build change, not a property of the current bundle.
+## 3D and interactions
 
-## Verification
+The original segmented shell, kernel, gyroscope, engraved rings, four glass capsules and procedural studio environment remain in `src/webgl/EvidenceCoreScene.ts`. Quality tiers, reduced-motion/static fallback, hidden-document handling and error recovery are existing features, not newly verified improvements.
 
-The production build has been run successfully during this revision. The editing tools report
-no remaining TypeScript diagnostics, and source searches confirmed removal of the old access
-copy and centralisation of contact links. All seven public Telegram destination pages were
-retrieved; this checks the public page, not bot functionality, channel admission, or ownership.
+The WebGL module is dynamically imported by `SceneLayer`. The current Vite config emits separate assets and does not use `vite-plugin-singlefile`. Verify emitted chunks and browser network requests rather than relying on old bundle-size claims.
 
-`node scripts/verify.mjs` provides a repeatable TypeScript and content-integrity check for local
-development. This script is supplied but has not been executed in this tool environment.
+Project tabs, role selection, native artwork dialogs, clipboard feedback, pointer overlay and motion preference remain in place. Methodology motion uses a separate continuous progress value; copy and keyboard tabs use the nearest stage. Manual selection takes precedence while visible. Desktop automatic mode resumes when the manually selected section leaves the viewport, unless motion is disabled. Mobile and short viewports retain tab-driven operation. Motion reduction snaps the visual to its selected state rather than interpolating.
 
-The environment does not expose a browser or a general-purpose test runner. Do not interpret
-the build as a visual, accessibility, performance, or dependency-security certification.
+## Security and deployment
 
-Before release, check:
+Deploy the **whole `dist/` directory**, including hashed scripts, styles, chunks, fonts and images. The production document uses `script-src 'self'`; fonts are self-hosted. No third-party animation library was added.
 
-- Layout at 360, 390, 430, 768, 1024, 1280, 1440, and 1920px.
-- Keyboard navigation, dialog closing and focus return, project/method tabs, and clipboard errors.
-- System reduced motion, motion toggle persistence, unavailable local storage, and blocked WebGL.
-- A simulated WebGL context loss and blocked Telegram image requests.
-- All public Telegram destinations, the original ShkoloDrive invitation, and the four exact images.
-- Production response headers and social preview URLs on the deployed host.
-- `npm audit`, Lighthouse, and an accessibility scanner. These have not been run in this revision.
+`frame-ancestors` in a CSP meta element is ignored by browsers. It requires an HTTP response header; a source assertion alone cannot prove framing protection. `public/_headers` describes additional headers for compatible hosts, but GitHub Pages does not apply that file. Check actual HTTP responses on the chosen host; do not claim complete header coverage from configuration text.
 
-Security and hosting details are in `SECURITY.md`.
+The runtime framing backstop, CSP and dependency controls have not been penetration-tested in this revision. `npm audit` must be run against the lockfile. Existing Dependabot PRs have not been merged or deleted. See `SECURITY.md` for the existing threat model, subject to these verification caveats.
+
+## Release checklist
+
+| Check | Required before release |
+| --- | --- |
+| Local checks | Typecheck, content/policy assertions, regression tests, audit and build |
+| Browser checks | Chromium opt-in suite and manual Firefox/Safari review |
+| Layout | 360, 390, 430, 768, 1024, 1280, 1440 and 1920px; short landscape viewports |
+| Accessibility | Keyboard focus, tab panels, dialog focus return, contrast and accessibility scanner |
+| Motion | Reduced motion, paused scene, preference changes, manual/resume and fast reverse scrolling |
+| WebGL | Blocked WebGL, context loss, GPU tier downgrade and poster fallback |
+| Performance | Actual frame timings, memory, network chunks and Lighthouse |
+| Assets | Local originals and blocked/expired CDN requests |
+| Deployment | Actual response headers, public links and social preview |
+
+This is a reviewable partial branch. The main 3D enhancement, full visual QA, complete security audit and verified compiled ZIP remain outstanding.
