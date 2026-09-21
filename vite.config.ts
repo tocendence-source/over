@@ -25,7 +25,9 @@ export default defineConfig({
     // modulepreload hints are supported by every browser that speaks ES modules.
     modulePreload: { polyfill: false },
   },
-  // The site is reviewed through ephemeral preview proxies, so accept any host.
-  server: { allowedHosts: true },
-  preview: { allowedHosts: true },
+  // Keep Vite's localhost/IP defaults instead of accepting arbitrary Host headers.
+  // For a trusted preview proxy, explicitly allow its exact hostname; never use
+  // a wildcard parent domain shared with other tenants or allowedHosts: true.
+  server: { allowedHosts: [] },
+  preview: { allowedHosts: [] },
 });
