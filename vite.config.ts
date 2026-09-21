@@ -7,25 +7,18 @@ import { defineConfig } from "vite";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-    },
+    alias: { "@": path.resolve(__dirname, "src") },
   },
   build: {
-    // Emit every asset as a separate, hash-named file. Nothing is inlined as a
-    // data: URL, so the deployed document references only same-origin files and
-    // the CSP can stay free of 'unsafe-inline' and data: in script-src/style-src.
+    // Separate same-origin assets preserve the production CSP and lazy WebGL chunk.
     assetsInlineLimit: 0,
-    // Keep the document free of injected helper snippets: every script the page
-    // runs must arrive as an external file so script-src can stay 'self' only.
-    // modulepreload hints are supported by every browser that speaks ES modules.
     modulePreload: { polyfill: false },
   },
-  // The site is reviewed through ephemeral preview proxies, so accept any host.
-  server: { allowedHosts: true },
-  preview: { allowedHosts: true },
+  // Keep Vite's host validation. For an owned preview domain, set
+  // __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS instead of allowing arbitrary hosts.
+  server: { host: "127.0.0.1", allowedHosts: [] },
+  preview: { host: "127.0.0.1", allowedHosts: [] },
 });
