@@ -28,9 +28,9 @@ export function usePointerTracking() {
 /** Document scroll progress, mirrored into the scene bus. */
 export function useScrollTracking() {
   useEffect(() => {
-    let ticking = false;
+    let frame: number | null = null;
     const update = () => {
-      ticking = false;
+      frame = null;
       const doc = document.documentElement;
       const max = doc.scrollHeight - window.innerHeight;
       sceneBus.scrollPx = window.scrollY;
@@ -39,14 +39,15 @@ export function useScrollTracking() {
       sceneBus.viewport.h = window.innerHeight;
     };
     const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
+      if (frame !== null) return;
+      frame = requestAnimationFrame(update);
     };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null;
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
